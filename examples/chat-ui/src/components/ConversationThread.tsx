@@ -6,7 +6,8 @@ import '../styles/markdown.css'
 import { type Conversation, type Message } from '../types'
 import { type Model } from '../types/models'
 import { type IDBPDatabase } from 'idb'
-import { type Tool, type Resource, type Prompt } from 'use-mcp/react'
+import { type Tool } from 'use-mcp/react'
+import type { PromptWithServer, ResourceWithServer } from './McpFeatures'
 import ChatMessage from './messages/ChatMessage.tsx'
 import ChatInput from './ChatInput'
 import ModelSelectionModal from './ModelSelectionModal'
@@ -31,10 +32,10 @@ interface ConversationThreadProps {
   apiKeyUpdateTrigger: number
   mcpTools: Tool[]
   onMcpToolsUpdate: (tools: Tool[]) => void
-  mcpResources: Resource[]
-  onMcpResourcesUpdate: (resources: Resource[]) => void
-  mcpPrompts: Prompt[]
-  onMcpPromptsUpdate: (prompts: Prompt[]) => void
+  mcpResources: ResourceWithServer[]
+  onMcpResourcesUpdate: (resources: ResourceWithServer[]) => void
+  mcpPrompts: PromptWithServer[]
+  onMcpPromptsUpdate: (prompts: PromptWithServer[]) => void
 }
 
 const ConversationThread: React.FC<ConversationThreadProps> = ({
@@ -99,16 +100,109 @@ const ConversationThread: React.FC<ConversationThreadProps> = ({
     }
   }
 
-  const handlePromptSelect = async (prompt: Prompt) => {
-    // For now, just add the prompt name to the input
-    // In a real implementation, you might want to show a dialog to collect prompt arguments
-    setInput(`Use prompt: ${prompt.name}`)
+  const handlePromptSelect = async (prompt: PromptWithServer) => {
+    if (!prompt.getPrompt) {
+      console.error('No getPrompt function available for this prompt')
+      return
+    }
+
+    try {
+      // For now, we'll call the prompt without arguments
+      // In a complete implementation, you would show a dialog to collect arguments
+      // based on prompt.arguments schema
+      const args: Record<string, string> = {}
+      
+      // If the prompt has required arguments, we should provide them
+      // For the demo, let's provide some default values for known prompts
+      if (prompt.name === 'party_invitation') {
+        args.name = 'User'
+        args.destination = 'Ibiza'
+      } else if (prompt.name === 'party_announcement') {
+        args.event = 'Demo'
+        args.details = 'Testing MCP prompts integration'
+      }
+      
+      console.log('Getting prompt:', prompt.name, 'with args:', args)
+      
+      // Call the getPrompt function
+      const result = await prompt.getPrompt(prompt.name, args)
+      
+      // Add the returned messages to the conversation
+      if (result && result.messages) {
+        result.messages.forEach(msg => {
+          const message: Message = msg.role === 'user' 
+            ? {
+                role: 'user',
+                content: msg.content.text || JSON.stringify(msg.content)
+              }
+            : {
+                role: 'assistant',
+                type: 'content' as const,
+                content: msg.content.text || JSON.stringify(msg.content)
+              }
+          
+          updateConversation((conv) => ({
+            ...conv,
+            messages: [...conv.messages, message],
+          }))
+        })
+      }
+    } catch (error) {
+      console.error('Error using prompt:', error)
+      // Add error message to conversation
+      const errorMessage: Message = {
+        role: 'error',
+        content: `Error using prompt: ${error}`,
+        timestamp: Date.now()
+      }
+      updateConversation((conv) => ({
+        ...conv,
+        messages: [...conv.messages, errorMessage],
+      }))
+    }
   }
 
-  const handleResourceSelect = async (resource: Resource) => {
-    // For now, just add the resource URI to the input
-    // In a real implementation, you might want to read the resource and display it
-    setInput(`Read resource: ${resource.uri}`)
+  const handleResourceSelect = async (resource: ResourceWithServer) => {
+    if (!resource.readResource) {
+      console.error('No readResource function available for this resource')
+      setInput(`Read resource: ${resource.uri}`)
+      return
+    }
+
+    try {
+      console.log('Reading resource:', resource.uri)
+      
+      // Call the readResource function
+      const result = await resource.readResource(resource.uri)
+      
+      // Add the resource content to the conversation
+      if (result && result.contents) {
+        result.contents.forEach(content => {
+          const message: Message = {
+            role: 'assistant',
+            type: 'content' as const,
+            content: `Resource: ${content.uri}\n\n${content.text || content.blob || 'No content'}`
+          }
+          
+          updateConversation((conv) => ({
+            ...conv,
+            messages: [...conv.messages, message],
+          }))
+        })
+      }
+    } catch (error) {
+      console.error('Error reading resource:', error)
+      // Add error message to conversation
+      const errorMessage: Message = {
+        role: 'error',
+        content: `Error reading resource: ${error}`,
+        timestamp: Date.now()
+      }
+      updateConversation((conv) => ({
+        ...conv,
+        messages: [...conv.messages, errorMessage],
+      }))
+    }
   }
 
   const { updateConversation } = useConversationUpdater({

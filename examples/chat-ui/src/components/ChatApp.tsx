@@ -6,7 +6,8 @@ import { useIndexedDB } from '../hooks/useIndexedDB'
 import { type Model } from '../types/models'
 import { getSelectedModel, setSelectedModel as saveSelectedModel } from '../utils/modelPreferences'
 import { type IDBPDatabase } from 'idb'
-import { type Tool, type Resource, type Prompt } from 'use-mcp/react'
+import { type Tool } from 'use-mcp/react'
+import type { PromptWithServer, ResourceWithServer } from './McpFeatures'
 
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
 interface ChatAppProps {}
@@ -18,8 +19,8 @@ const ChatApp: React.FC<ChatAppProps> = () => {
   const [selectedModel, setSelectedModel] = useState<Model>(getSelectedModel())
   const [apiKeyUpdateTrigger, setApiKeyUpdateTrigger] = useState<number>(0)
   const [mcpTools, setMcpTools] = useState<Tool[]>([])
-  const [mcpResources, setMcpResources] = useState<Resource[]>([])
-  const [mcpPrompts, setMcpPrompts] = useState<Prompt[]>([])
+  const [mcpResources, setMcpResources] = useState<ResourceWithServer[]>([])
+  const [mcpPrompts, setMcpPrompts] = useState<PromptWithServer[]>([])
   const [animationDelay] = useState<number>(() => -Math.random() * 60)
   const db = useIndexedDB()
 

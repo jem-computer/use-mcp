@@ -1,12 +1,22 @@
 import React, { useState } from 'react'
-import { type Resource, type Prompt } from 'use-mcp/react'
 import { FileText, MessageSquare, X } from 'lucide-react'
+import type { Resource, Prompt } from 'use-mcp/react'
+
+export interface PromptWithServer extends Prompt {
+  serverId?: string
+  getPrompt?: (name: string, args?: Record<string, string>) => Promise<{ messages: Array<{ role: 'user' | 'assistant'; content: { type: string; text?: string; [key: string]: any } }> }>
+}
+
+export interface ResourceWithServer extends Resource {
+  serverId?: string
+  readResource?: (uri: string) => Promise<{ contents: Array<{ uri: string; mimeType?: string; text?: string; blob?: string }> }>
+}
 
 interface McpFeaturesProps {
-  resources: Resource[]
-  prompts: Prompt[]
-  onPromptSelect: (prompt: Prompt) => void
-  onResourceSelect: (resource: Resource) => void
+  resources: ResourceWithServer[]
+  prompts: PromptWithServer[]
+  onPromptSelect: (prompt: PromptWithServer) => void
+  onResourceSelect: (resource: ResourceWithServer) => void
 }
 
 export const McpFeatures: React.FC<McpFeaturesProps> = ({ resources, prompts, onPromptSelect, onResourceSelect }) => {

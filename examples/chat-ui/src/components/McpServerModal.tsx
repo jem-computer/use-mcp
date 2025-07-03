@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { X, Info, Settings, Plus, Trash2, Power, PowerOff } from 'lucide-react'
-import { useMcp, type Tool, type Resource, type Prompt } from 'use-mcp/react'
+import { useMcp, type Tool } from 'use-mcp/react'
+import type { PromptWithServer, ResourceWithServer } from './McpFeatures'
 
 interface McpServer {
   id: string
@@ -35,8 +36,8 @@ interface McpServerModalProps {
   isOpen: boolean
   onClose: () => void
   onToolsUpdate?: (tools: Tool[]) => void
-  onResourcesUpdate?: (resources: Resource[]) => void
-  onPromptsUpdate?: (prompts: Prompt[]) => void
+  onResourcesUpdate?: (resources: ResourceWithServer[]) => void
+  onPromptsUpdate?: (prompts: PromptWithServer[]) => void
 }
 
 const McpServerModal: React.FC<McpServerModalProps> = ({ isOpen, onClose, onToolsUpdate, onResourcesUpdate, onPromptsUpdate }) => {
@@ -104,8 +105,8 @@ const McpServerModal: React.FC<McpServerModalProps> = ({ isOpen, onClose, onTool
   // Aggregate all tools, resources, and prompts from enabled servers and notify parent
   useEffect(() => {
     const allTools: Tool[] = []
-    const allResources: Resource[] = []
-    const allPrompts: Prompt[] = []
+    const allResources: ResourceWithServer[] = []
+    const allPrompts: PromptWithServer[] = []
 
     servers.forEach((server) => {
       if (server.enabled && connectionData[server.id]) {
@@ -120,14 +121,24 @@ const McpServerModal: React.FC<McpServerModalProps> = ({ isOpen, onClose, onTool
           allTools.push(...serverTools)
         }
         
-        // Aggregate resources
+        // Aggregate resources with readResource function
         if (connection.resources) {
-          allResources.push(...connection.resources)
+          const serverResources = connection.resources.map((r: any) => ({
+            ...r,
+            serverId: server.id,
+            readResource: connection.readResource,
+          }))
+          allResources.push(...serverResources)
         }
         
-        // Aggregate prompts
+        // Aggregate prompts with getPrompt function
         if (connection.prompts) {
-          allPrompts.push(...connection.prompts)
+          const serverPrompts = connection.prompts.map((p: any) => ({
+            ...p,
+            serverId: server.id,
+            getPrompt: connection.getPrompt,
+          }))
+          allPrompts.push(...serverPrompts)
         }
       }
     })
@@ -369,7 +380,7 @@ const McpServerModal: React.FC<McpServerModalProps> = ({ isOpen, onClose, onTool
                               <div>
                                 <h4 className="font-medium text-sm mb-2">Available Resources ({resources.length})</h4>
                                 <div className="border border-gray-200 rounded p-2 bg-gray-50 max-h-24 overflow-y-auto space-y-1">
-                                  {resources.map((resource: Resource, index: number) => (
+                                  {resources.map((resource: any, index: number) => (
                                     <div key={index} className="text-xs">
                                       <span className="font-medium">{resource.name}</span>
                                       <span className="text-gray-400 ml-2">- {resource.uri}</span>
@@ -383,7 +394,7 @@ const McpServerModal: React.FC<McpServerModalProps> = ({ isOpen, onClose, onTool
                               <div>
                                 <h4 className="font-medium text-sm mb-2">Available Prompts ({prompts.length})</h4>
                                 <div className="border border-gray-200 rounded p-2 bg-gray-50 max-h-24 overflow-y-auto space-y-1">
-                                  {prompts.map((prompt: Prompt, index: number) => (
+                                  {prompts.map((prompt: any, index: number) => (
                                     <div key={index} className="text-xs">
                                       <span className="font-medium">{prompt.name}</span>
                                       {prompt.description && <span className="text-gray-600 ml-2">- {prompt.description}</span>}

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
-import { useMcp, type Tool, type Resource, type Prompt } from 'use-mcp/react'
+import { useMcp, type Tool } from 'use-mcp/react'
 import { Settings, Info } from 'lucide-react'
+import type { PromptWithServer, ResourceWithServer } from './McpFeatures'
 
 // MCP Connection wrapper that only renders when active
 function McpConnection({ serverUrl, onConnectionUpdate }: { serverUrl: string; onConnectionUpdate: (data: any) => void }) {
@@ -28,8 +29,8 @@ export function McpServers({
   onPromptsUpdate 
 }: { 
   onToolsUpdate?: (tools: Tool[]) => void
-  onResourcesUpdate?: (resources: Resource[]) => void
-  onPromptsUpdate?: (prompts: Prompt[]) => void
+  onResourcesUpdate?: (resources: ResourceWithServer[]) => void
+  onPromptsUpdate?: (prompts: PromptWithServer[]) => void
 }) {
   const [serverUrl, setServerUrl] = useState(() => {
     return sessionStorage.getItem('mcpServerUrl') || ''
@@ -71,17 +72,27 @@ export function McpServers({
 
   // Notify parent component when resources change
   useEffect(() => {
-    if (onResourcesUpdate) {
-      onResourcesUpdate(resources)
+    if (onResourcesUpdate && resources.length > 0) {
+      onResourcesUpdate(
+        resources.map((r: any) => ({
+          ...r,
+          readResource: connectionData.readResource,
+        }))
+      )
     }
-  }, [resources, onResourcesUpdate])
+  }, [resources, onResourcesUpdate, connectionData])
 
   // Notify parent component when prompts change
   useEffect(() => {
-    if (onPromptsUpdate) {
-      onPromptsUpdate(prompts)
+    if (onPromptsUpdate && prompts.length > 0) {
+      onPromptsUpdate(
+        prompts.map((p: any) => ({
+          ...p,
+          getPrompt: connectionData.getPrompt,
+        }))
+      )
     }
-  }, [prompts, onPromptsUpdate])
+  }, [prompts, onPromptsUpdate, connectionData])
 
   // Handle connection
   const handleConnect = () => {
@@ -272,7 +283,7 @@ export function McpServers({
           <div>
             <h3 className="font-medium text-xs mb-2">Available Resources ({resources.length})</h3>
             <div className="border border-gray-200 rounded p-2 bg-gray-50 max-h-32 overflow-y-auto space-y-2">
-              {resources.map((resource: Resource, index: number) => (
+              {resources.map((resource: any, index: number) => (
                 <div key={index} className="text-xs pb-2 border-b border-gray-100 last:border-b-0">
                   <span className="font-medium">{resource.name}</span>
                   <p className="text-gray-400 text-xs">{resource.uri}</p>
@@ -288,7 +299,7 @@ export function McpServers({
           <div>
             <h3 className="font-medium text-xs mb-2">Available Prompts ({prompts.length})</h3>
             <div className="border border-gray-200 rounded p-2 bg-gray-50 max-h-32 overflow-y-auto space-y-2">
-              {prompts.map((prompt: Prompt, index: number) => (
+              {prompts.map((prompt: any, index: number) => (
                 <div key={index} className="text-xs pb-2 border-b border-gray-100 last:border-b-0">
                   <span className="font-medium">{prompt.name}</span>
                   {prompt.description && <p className="text-gray-500 mt-1 text-xs">{prompt.description}</p>}

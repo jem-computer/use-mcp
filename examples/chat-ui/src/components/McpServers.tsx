@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { useMcp, type Tool } from 'use-mcp/react'
+import { useMcp, type Tool, type Resource, type Prompt } from 'use-mcp/react'
 import { Settings, Info } from 'lucide-react'
 
 // MCP Connection wrapper that only renders when active
@@ -16,13 +16,21 @@ function McpConnection({ serverUrl, onConnectionUpdate }: { serverUrl: string; o
   // Update parent component with connection data
   useEffect(() => {
     onConnectionUpdate(connection)
-  }, [connection.state, connection.tools, connection.error, connection.log.length, connection.authUrl])
+  }, [connection.state, connection.tools, connection.resources, connection.prompts, connection.error, connection.log.length, connection.authUrl])
 
   // Return null as this is just a hook wrapper
   return null
 }
 
-export function McpServers({ onToolsUpdate }: { onToolsUpdate?: (tools: Tool[]) => void }) {
+export function McpServers({ 
+  onToolsUpdate,
+  onResourcesUpdate,
+  onPromptsUpdate 
+}: { 
+  onToolsUpdate?: (tools: Tool[]) => void
+  onResourcesUpdate?: (resources: Resource[]) => void
+  onPromptsUpdate?: (prompts: Prompt[]) => void
+}) {
   const [serverUrl, setServerUrl] = useState(() => {
     return sessionStorage.getItem('mcpServerUrl') || ''
   })
@@ -31,6 +39,8 @@ export function McpServers({ onToolsUpdate }: { onToolsUpdate?: (tools: Tool[]) 
   const [connectionData, setConnectionData] = useState<any>({
     state: 'not-connected',
     tools: [],
+    resources: [],
+    prompts: [],
     error: undefined,
     log: [],
     authUrl: undefined,
@@ -38,12 +48,14 @@ export function McpServers({ onToolsUpdate }: { onToolsUpdate?: (tools: Tool[]) 
     disconnect: () => {},
     authenticate: () => Promise.resolve(undefined),
     callTool: (_name: string, _args?: Record<string, unknown>) => Promise.resolve(undefined),
+    readResource: (_uri: string) => Promise.resolve({ contents: [] }),
+    getPrompt: (_name: string, _args?: Record<string, string>) => Promise.resolve({ messages: [] }),
     clearStorage: () => {},
   })
   const logRef = useRef<HTMLDivElement>(null)
 
   // Extract connection properties
-  const { state, tools, error, log, authUrl, disconnect, authenticate } = connectionData
+  const { state, tools, resources, prompts, error, log, authUrl, disconnect, authenticate } = connectionData
 
   // Notify parent component when tools change
   useEffect(() => {
@@ -56,6 +68,20 @@ export function McpServers({ onToolsUpdate }: { onToolsUpdate?: (tools: Tool[]) 
       )
     }
   }, [tools, onToolsUpdate])
+
+  // Notify parent component when resources change
+  useEffect(() => {
+    if (onResourcesUpdate) {
+      onResourcesUpdate(resources)
+    }
+  }, [resources, onResourcesUpdate])
+
+  // Notify parent component when prompts change
+  useEffect(() => {
+    if (onPromptsUpdate) {
+      onPromptsUpdate(prompts)
+    }
+  }, [prompts, onPromptsUpdate])
 
   // Handle connection
   const handleConnect = () => {
@@ -70,6 +96,8 @@ export function McpServers({ onToolsUpdate }: { onToolsUpdate?: (tools: Tool[]) 
     setConnectionData({
       state: 'not-connected',
       tools: [],
+      resources: [],
+      prompts: [],
       error: undefined,
       log: [],
       authUrl: undefined,
@@ -77,6 +105,8 @@ export function McpServers({ onToolsUpdate }: { onToolsUpdate?: (tools: Tool[]) 
       disconnect: () => {},
       authenticate: () => Promise.resolve(undefined),
       callTool: (_name: string, _args?: Record<string, unknown>) => Promise.resolve(undefined),
+      readResource: (_uri: string) => Promise.resolve({ contents: [] }),
+      getPrompt: (_name: string, _args?: Record<string, string>) => Promise.resolve({ messages: [] }),
       clearStorage: () => {},
     })
   }
@@ -122,12 +152,18 @@ export function McpServers({ onToolsUpdate }: { onToolsUpdate?: (tools: Tool[]) 
     }
   }
 
-  // Log the tools to console when they change (for debugging)
+  // Log the tools, resources, and prompts to console when they change (for debugging)
   useEffect(() => {
     if (tools.length > 0) {
       console.log('MCP Tools available:', tools)
     }
-  }, [tools])
+    if (resources.length > 0) {
+      console.log('MCP Resources available:', resources)
+    }
+    if (prompts.length > 0) {
+      console.log('MCP Prompts available:', prompts)
+    }
+  }, [tools, resources, prompts])
 
   return (
     <section className="rounded-lg bg-white p-4 border border-zinc-200">
@@ -225,6 +261,37 @@ export function McpServers({ onToolsUpdate }: { onToolsUpdate?: (tools: Tool[]) 
                 <div key={index} className="text-xs pb-2 border-b border-gray-100 last:border-b-0">
                   <span className="font-medium">{tool.name}</span>
                   {tool.description && <p className="text-gray-500 mt-1 text-xs">{tool.description}</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Resources display when connected */}
+        {state === 'ready' && resources.length > 0 && (
+          <div>
+            <h3 className="font-medium text-xs mb-2">Available Resources ({resources.length})</h3>
+            <div className="border border-gray-200 rounded p-2 bg-gray-50 max-h-32 overflow-y-auto space-y-2">
+              {resources.map((resource: Resource, index: number) => (
+                <div key={index} className="text-xs pb-2 border-b border-gray-100 last:border-b-0">
+                  <span className="font-medium">{resource.name}</span>
+                  <p className="text-gray-400 text-xs">{resource.uri}</p>
+                  {resource.description && <p className="text-gray-500 mt-1 text-xs">{resource.description}</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Prompts display when connected */}
+        {state === 'ready' && prompts.length > 0 && (
+          <div>
+            <h3 className="font-medium text-xs mb-2">Available Prompts ({prompts.length})</h3>
+            <div className="border border-gray-200 rounded p-2 bg-gray-50 max-h-32 overflow-y-auto space-y-2">
+              {prompts.map((prompt: Prompt, index: number) => (
+                <div key={index} className="text-xs pb-2 border-b border-gray-100 last:border-b-0">
+                  <span className="font-medium">{prompt.name}</span>
+                  {prompt.description && <p className="text-gray-500 mt-1 text-xs">{prompt.description}</p>}
                 </div>
               ))}
             </div>

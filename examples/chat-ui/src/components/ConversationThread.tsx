@@ -6,7 +6,7 @@ import '../styles/markdown.css'
 import { type Conversation, type Message } from '../types'
 import { type Model } from '../types/models'
 import { type IDBPDatabase } from 'idb'
-import { type Tool } from 'use-mcp/react'
+import { type Tool, type Resource, type Prompt } from 'use-mcp/react'
 import ChatMessage from './messages/ChatMessage.tsx'
 import ChatInput from './ChatInput'
 import ModelSelectionModal from './ModelSelectionModal'
@@ -17,6 +17,7 @@ import { useConversationUpdater } from '../hooks/useConversationUpdater'
 import { setApiKey } from '../utils/apiKeys'
 import { hasApiKey } from '../utils/apiKeys'
 import ApiKeyModal from './ApiKeyModal'
+import { McpFeatures } from './McpFeatures'
 
 interface ConversationThreadProps {
   conversations: Conversation[]
@@ -30,6 +31,10 @@ interface ConversationThreadProps {
   apiKeyUpdateTrigger: number
   mcpTools: Tool[]
   onMcpToolsUpdate: (tools: Tool[]) => void
+  mcpResources: Resource[]
+  onMcpResourcesUpdate: (resources: Resource[]) => void
+  mcpPrompts: Prompt[]
+  onMcpPromptsUpdate: (prompts: Prompt[]) => void
 }
 
 const ConversationThread: React.FC<ConversationThreadProps> = ({
@@ -44,6 +49,10 @@ const ConversationThread: React.FC<ConversationThreadProps> = ({
   apiKeyUpdateTrigger,
   mcpTools,
   onMcpToolsUpdate,
+  mcpResources,
+  onMcpResourcesUpdate,
+  mcpPrompts,
+  onMcpPromptsUpdate,
 }) => {
   const [input, setInput] = useState<string>('')
   const [apiKeyModal, setApiKeyModal] = useState<{ isOpen: boolean; model: Model | null }>({
@@ -88,6 +97,18 @@ const ConversationThread: React.FC<ConversationThreadProps> = ({
       window.apiKeyModalResolve(false)
       delete window.apiKeyModalResolve
     }
+  }
+
+  const handlePromptSelect = async (prompt: Prompt) => {
+    // For now, just add the prompt name to the input
+    // In a real implementation, you might want to show a dialog to collect prompt arguments
+    setInput(`Use prompt: ${prompt.name}`)
+  }
+
+  const handleResourceSelect = async (resource: Resource) => {
+    // For now, just add the resource URI to the input
+    // In a real implementation, you might want to read the resource and display it
+    setInput(`Read resource: ${resource.uri}`)
   }
 
   const { updateConversation } = useConversationUpdater({
@@ -227,15 +248,15 @@ const ConversationThread: React.FC<ConversationThreadProps> = ({
               <span className="text-sm text-zinc-500">
                 {(() => {
                   try {
-                    const servers = JSON.parse(localStorage.getItem('mcpServers') || '[]')
-                    const toolCounts = JSON.parse(localStorage.getItem('mcpServerToolCounts') || '{}')
+                    const servers = JSON.parse(localStorage.getItem('mcpServers') || '[]') as Array<{ id: string; enabled: boolean }>
+                    const toolCounts = JSON.parse(localStorage.getItem('mcpServerToolCounts') || '{}') as Record<string, number>
 
-                    const enabledServers = servers.filter((s: any) => s.enabled).length
+                    const enabledServers = servers.filter((s) => s.enabled).length
                     const totalServers = servers.length
                     const enabledTools = mcpTools.length
 
                     // Calculate total tools across all servers (including disabled ones that were previously connected)
-                    const totalTools = servers.reduce((sum: number, server: any) => {
+                    const totalTools = servers.reduce((sum, server) => {
                       return sum + (toolCounts[server.id] || 0)
                     }, 0)
 
@@ -270,7 +291,20 @@ const ConversationThread: React.FC<ConversationThreadProps> = ({
         apiKeyUpdateTrigger={apiKeyUpdateTrigger}
       />
 
-      <McpServerModal isOpen={mcpServerModal} onClose={() => setMcpServerModal(false)} onToolsUpdate={onMcpToolsUpdate} />
+      <McpServerModal 
+        isOpen={mcpServerModal} 
+        onClose={() => setMcpServerModal(false)} 
+        onToolsUpdate={onMcpToolsUpdate}
+        onResourcesUpdate={onMcpResourcesUpdate}
+        onPromptsUpdate={onMcpPromptsUpdate}
+      />
+
+      <McpFeatures
+        resources={mcpResources}
+        prompts={mcpPrompts}
+        onPromptSelect={handlePromptSelect}
+        onResourceSelect={handleResourceSelect}
+      />
     </div>
   )
 }

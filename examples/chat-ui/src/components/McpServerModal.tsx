@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { X, Info, Settings, Plus, Trash2, Power, PowerOff } from 'lucide-react'
-import { useMcp, type Tool } from 'use-mcp/react'
+import { useMcp, type Tool, type Resource, type Prompt } from 'use-mcp/react'
 
 interface McpServer {
   id: string
@@ -25,7 +25,7 @@ function McpConnection({ server, onConnectionUpdate }: { server: McpServer; onCo
   // Update parent component with connection data
   useEffect(() => {
     onConnectionUpdate(server.id, connection)
-  }, [server.id, connection.state, connection.tools, connection.error, connection.log.length, connection.authUrl])
+  }, [server.id, connection.state, connection.tools, connection.resources, connection.prompts, connection.error, connection.log.length, connection.authUrl])
 
   // Return null as this is just a hook wrapper
   return null
@@ -35,9 +35,11 @@ interface McpServerModalProps {
   isOpen: boolean
   onClose: () => void
   onToolsUpdate?: (tools: Tool[]) => void
+  onResourcesUpdate?: (resources: Resource[]) => void
+  onPromptsUpdate?: (prompts: Prompt[]) => void
 }
 
-const McpServerModal: React.FC<McpServerModalProps> = ({ isOpen, onClose, onToolsUpdate }) => {
+const McpServerModal: React.FC<McpServerModalProps> = ({ isOpen, onClose, onToolsUpdate, onResourcesUpdate, onPromptsUpdate }) => {
   const [servers, setServers] = useState<McpServer[]>(() => {
     const stored = localStorage.getItem('mcpServers')
     return stored ? JSON.parse(stored) : []
@@ -99,24 +101,47 @@ const McpServerModal: React.FC<McpServerModalProps> = ({ isOpen, onClose, onTool
     }
   }, [isOpen])
 
-  // Aggregate all tools from enabled servers and notify parent
+  // Aggregate all tools, resources, and prompts from enabled servers and notify parent
   useEffect(() => {
     const allTools: Tool[] = []
+    const allResources: Resource[] = []
+    const allPrompts: Prompt[] = []
 
     servers.forEach((server) => {
-      if (server.enabled && connectionData[server.id]?.tools) {
-        const serverTools = connectionData[server.id].tools.map((t: Tool) => ({
-          ...t,
-          callTool: (args: Record<string, unknown>) => connectionData[server.id].callTool(t.name, args),
-        }))
-        allTools.push(...serverTools)
+      if (server.enabled && connectionData[server.id]) {
+        const connection = connectionData[server.id]
+        
+        // Aggregate tools
+        if (connection.tools) {
+          const serverTools = connection.tools.map((t: Tool) => ({
+            ...t,
+            callTool: (args: Record<string, unknown>) => connection.callTool(t.name, args),
+          }))
+          allTools.push(...serverTools)
+        }
+        
+        // Aggregate resources
+        if (connection.resources) {
+          allResources.push(...connection.resources)
+        }
+        
+        // Aggregate prompts
+        if (connection.prompts) {
+          allPrompts.push(...connection.prompts)
+        }
       }
     })
 
     if (onToolsUpdate) {
       onToolsUpdate(allTools)
     }
-  }, [servers, connectionData, onToolsUpdate])
+    if (onResourcesUpdate) {
+      onResourcesUpdate(allResources)
+    }
+    if (onPromptsUpdate) {
+      onPromptsUpdate(allPrompts)
+    }
+  }, [servers, connectionData, onToolsUpdate, onResourcesUpdate, onPromptsUpdate])
 
   // Handle adding a new server
   const handleAddServer = () => {
@@ -250,8 +275,8 @@ const McpServerModal: React.FC<McpServerModalProps> = ({ isOpen, onClose, onTool
             {/* Server List */}
             <div className="space-y-4 mb-6">
               {servers.map((server) => {
-                const connection = connectionData[server.id] || { state: 'not-connected', tools: [], error: undefined, authUrl: undefined }
-                const { state, tools, error, authUrl } = connection
+                const connection = connectionData[server.id] || { state: 'not-connected', tools: [], resources: [], prompts: [], error: undefined, authUrl: undefined }
+                const { state, tools, resources, prompts, error, authUrl } = connection
 
                 return (
                   <div
@@ -324,17 +349,49 @@ const McpServerModal: React.FC<McpServerModalProps> = ({ isOpen, onClose, onTool
                           </div>
                         )}
 
-                        {state === 'ready' && tools.length > 0 && (
-                          <div>
-                            <h4 className="font-medium text-sm mb-2">Available Tools ({tools.length})</h4>
-                            <div className="border border-gray-200 rounded p-2 bg-gray-50 max-h-24 overflow-y-auto space-y-1">
-                              {tools.map((tool: Tool, index: number) => (
-                                <div key={index} className="text-xs">
-                                  <span className="font-medium">{tool.name}</span>
-                                  {tool.description && <span className="text-gray-600 ml-2">- {tool.description}</span>}
+                        {state === 'ready' && (
+                          <div className="space-y-3">
+                            {tools.length > 0 && (
+                              <div>
+                                <h4 className="font-medium text-sm mb-2">Available Tools ({tools.length})</h4>
+                                <div className="border border-gray-200 rounded p-2 bg-gray-50 max-h-24 overflow-y-auto space-y-1">
+                                  {tools.map((tool: Tool, index: number) => (
+                                    <div key={index} className="text-xs">
+                                      <span className="font-medium">{tool.name}</span>
+                                      {tool.description && <span className="text-gray-600 ml-2">- {tool.description}</span>}
+                                    </div>
+                                  ))}
                                 </div>
-                              ))}
-                            </div>
+                              </div>
+                            )}
+                            
+                            {resources && resources.length > 0 && (
+                              <div>
+                                <h4 className="font-medium text-sm mb-2">Available Resources ({resources.length})</h4>
+                                <div className="border border-gray-200 rounded p-2 bg-gray-50 max-h-24 overflow-y-auto space-y-1">
+                                  {resources.map((resource: Resource, index: number) => (
+                                    <div key={index} className="text-xs">
+                                      <span className="font-medium">{resource.name}</span>
+                                      <span className="text-gray-400 ml-2">- {resource.uri}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {prompts && prompts.length > 0 && (
+                              <div>
+                                <h4 className="font-medium text-sm mb-2">Available Prompts ({prompts.length})</h4>
+                                <div className="border border-gray-200 rounded p-2 bg-gray-50 max-h-24 overflow-y-auto space-y-1">
+                                  {prompts.map((prompt: Prompt, index: number) => (
+                                    <div key={index} className="text-xs">
+                                      <span className="font-medium">{prompt.name}</span>
+                                      {prompt.description && <span className="text-gray-600 ml-2">- {prompt.description}</span>}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </>

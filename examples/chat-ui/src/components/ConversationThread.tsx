@@ -106,6 +106,21 @@ const ConversationThread: React.FC<ConversationThreadProps> = ({
       return
     }
 
+    // Ensure conversation exists
+    if (currentConversation.messages.length === 0 && conversationId) {
+      setConversations((prev) => {
+        const exists = prev.some(c => c.id === conversationId)
+        if (!exists) {
+          return [{
+            id: conversationId,
+            title: 'New conversation',
+            messages: [],
+          }, ...prev]
+        }
+        return prev
+      })
+    }
+
     try {
       // For now, we'll call the prompt without arguments
       // In a complete implementation, you would show a dialog to collect arguments
@@ -167,6 +182,21 @@ const ConversationThread: React.FC<ConversationThreadProps> = ({
       console.error('No readResource function available for this resource')
       setInput(`Read resource: ${resource.uri}`)
       return
+    }
+
+    // Ensure conversation exists
+    if (currentConversation.messages.length === 0 && conversationId) {
+      setConversations((prev) => {
+        const exists = prev.some(c => c.id === conversationId)
+        if (!exists) {
+          return [{
+            id: conversationId,
+            title: 'New conversation',
+            messages: [],
+          }, ...prev]
+        }
+        return prev
+      })
     }
 
     try {
